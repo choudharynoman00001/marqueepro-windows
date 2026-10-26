@@ -32,4 +32,4 @@ jobs:
         shell: pwsh
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          gh release create v0.1.0 MarqueePro-Setup.exe --title "MarqueePro 0.1.0 (Windows, unsigned)" --notes "Synthetic-data build. Unsigned installer, Windows SmartScreen shows Unknown publisher. CI smoke passed on a Windows runner. Not yet tried on a physical PC."
+          gh release create v0.1.1 MarqueePro-Setup.exe --title "MarqueePro 0.1.1 (Windows, unsigned)" --notes "Synthetic-data build. Unsigned installer, Windows SmartScreen shows Unknown publisher. CI smoke passed on a Windows runner. Not yet tried on a physical PC."
