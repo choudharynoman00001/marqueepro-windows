@@ -11,7 +11,7 @@ jobs:
       - name: Unpack payload and stage runtime
         shell: pwsh
         run: |
-          Expand-Archive 1-payload.zip -DestinationPath . -Force
+          Expand-Archive 2-payload.zip -DestinationPath . -Force
           New-Item -ItemType Directory stage\runtime,stage\installer | Out-Null
           Copy-Item (Get-Command node).Source stage\runtime\node.exe
           Copy-Item -Recurse app stage\app
