@@ -16,6 +16,7 @@ jobs:
           Copy-Item (Get-Command node).Source stage\runtime\node.exe
           Copy-Item -Recurse app stage\app
           Copy-Item installer\launch.cmd stage\installer\
+          Copy-Item installer\stop.cmd stage\installer\
           Push-Location stage\app; npm install --omit=dev --no-audit --no-fund; npx prisma generate; Pop-Location
       - name: Build installer
         shell: pwsh
@@ -32,4 +33,4 @@ jobs:
         shell: pwsh
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          gh release create v0.1.1 MarqueePro-Setup.exe --title "MarqueePro 0.1.1 (Windows, unsigned)" --notes "Synthetic-data build. Unsigned installer, Windows SmartScreen shows Unknown publisher. CI smoke passed on a Windows runner. Not yet tried on a physical PC."
+          gh release create v0.1.2 MarqueePro-Setup.exe --title "MarqueePro 0.1.2 (Windows, unsigned)" --notes "Synthetic-data build. Unsigned installer, Windows SmartScreen shows Unknown publisher. Opens in a Chromium app window (Edge or Chrome) with a default-browser fallback. CI smoke passed on a Windows runner. Not yet tried on a physical PC."
