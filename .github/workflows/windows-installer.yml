@@ -33,4 +33,5 @@ jobs:
         shell: pwsh
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          gh release create v0.1.2 MarqueePro-Setup.exe --title "MarqueePro 0.1.2 (Windows, unsigned)" --notes "Synthetic-data build. Unsigned installer, Windows SmartScreen shows Unknown publisher. Opens in a Chromium app window (Edge or Chrome) with a default-browser fallback. CI smoke passed on a Windows runner. Not yet tried on a physical PC."
+          $png = @(Get-ChildItem "$env:RUNNER_TEMP\shots\out\*.png" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+          gh release create v0.1.3 MarqueePro-Setup.exe @png --title "MarqueePro 0.1.3 (Windows, unsigned)" --notes "Synthetic-data build. Unsigned installer, Windows SmartScreen shows Unknown publisher. Opens in a Chromium app window (Edge or Chrome) with a default-browser fallback. CI smoke passed on a Windows runner. Not yet tried on a physical PC."
