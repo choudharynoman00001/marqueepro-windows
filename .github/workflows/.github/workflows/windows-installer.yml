@@ -1,0 +1,34 @@
+name: windows-installer
+on: { workflow_dispatch: {} }
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.13.0' }
+      - name: Unpack payload and stage runtime
+        shell: pwsh
+        run: |
+          Expand-Archive 1-payload.zip -DestinationPath . -Force
+          New-Item -ItemType Directory stage\runtime,stage\installer | Out-Null
+          Copy-Item (Get-Command node).Source stage\runtime\node.exe
+          Copy-Item -Recurse app stage\app
+          Copy-Item installer\launch.cmd stage\installer\
+          Push-Location stage\app; npm install --omit=dev --no-audit --no-fund; npx prisma generate; Pop-Location
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          & "C:\Program Files (x86)\NSIS\makensis.exe" /V2 installer\marqueepro.nsi
+          Move-Item installer\MarqueePro-Setup.exe .
+      - name: Smoke test
+        shell: pwsh
+        run: ./installer/smoke.ps1
+      - uses: actions/upload-artifact@v4
+        with: { name: MarqueePro-Setup, path: MarqueePro-Setup.exe }
+      - name: Release
+        shell: pwsh
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release create v0.1.0 MarqueePro-Setup.exe --title "MarqueePro 0.1.0 (Windows, unsigned)" --notes "Synthetic-data build. Unsigned: Windows SmartScreen shows Unknown publisher. CI smoke on a Windows runner passed; not yet tried on a physical PC."
