@@ -1,0 +1,69 @@
+name: native-evidence-v48
+# Manual only. Builds the Windows installer from one exact payload file after checking its hash.
+# Artifact only: no release is created and the repository permission is read-only.
+# Public logs and artifacts carry fixed classifications and sanitized synthetic screenshots only.
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+env:
+  PAYLOAD_FILE: 1-v48-native-bundle.zip
+  PAYLOAD_SHA256: 5658d8d21e62159d84c838424ef0fc69c4508ee83980725ed503daf075314865
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22.13.0' }
+      - name: Check payload hash
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash -Algorithm SHA256 $env:PAYLOAD_FILE).Hash.ToLower()
+          "payload sha256 $h"
+          if ($h -ne $env:PAYLOAD_SHA256) { throw "payload hash mismatch" }
+      - name: Unpack payload and stage runtime
+        shell: pwsh
+        run: |
+          Expand-Archive $env:PAYLOAD_FILE -DestinationPath . -Force
+          New-Item -ItemType Directory stage\runtime,stage\installer | Out-Null
+          Copy-Item (Get-Command node).Source stage\runtime\node.exe
+          Copy-Item -Recurse app stage\app
+          Copy-Item installer\launch.cmd stage\installer\
+          Copy-Item installer\stop.cmd stage\installer\
+          "node " + (node --version) + " npm " + (npm --version)
+          Push-Location stage\app; npm ci --omit=dev --no-audit --no-fund; npx prisma generate; Pop-Location
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install nsis -y --no-progress
+          & "C:\Program Files (x86)\NSIS\makensis.exe" /V2 installer\marqueepro.nsi
+          Move-Item installer\MarqueePro-Setup.exe .
+          "installer sha256 " + (Get-FileHash -Algorithm SHA256 MarqueePro-Setup.exe).Hash.ToLower()
+      - name: Smoke test
+        id: smoke
+        shell: pwsh
+        run: ./installer/smoke-native.ps1
+      - name: Collect sanitized diagnostics
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory diag -Force | Out-Null
+          $L = @()
+          $L += "payload_sha256=" + (Get-FileHash -Algorithm SHA256 $env:PAYLOAD_FILE).Hash.ToLower()
+          $L += "node=" + (node --version)
+          $L += "smoke_outcome=" + "${{ steps.smoke.outcome }}"
+          if (Test-Path MarqueePro-Setup.exe) { $L += "installer_sha256=" + (Get-FileHash -Algorithm SHA256 MarqueePro-Setup.exe).Hash.ToLower() }
+          $ll = "$env:LOCALAPPDATA\MarqueePro\data\last-launch.txt"
+          if (Test-Path $ll) { $m = (Get-Content $ll -Raw); if ($m -match 'mode=app-window') { $L += "launcher=app-window" } elseif ($m -match 'mode=fallback') { $L += "launcher=fallback" } }
+          $lg = Get-Content "$env:RUNNER_TEMP\o.txt" -Raw -ErrorAction SilentlyContinue
+          foreach ($k in 'EADDRINUSE','EACCES','ECONNREFUSED','Missing dist','migrat','initdb','Cannot find module') { if ($lg -and $lg -match [regex]::Escape($k)) { $L += "server_log_class=$k" } }
+          $L | Set-Content diag\summary.txt -Encoding ascii
+          $out = "$env:RUNNER_TEMP\shots\out"
+          if (Test-Path $out) { Get-ChildItem $out -Filter *.png | Where-Object { $_.Name -match '^win-(desktop|mobile)-(1-login)\.png$' } | Copy-Item -Destination diag\ }
+          Get-ChildItem diag | Select-Object -ExpandProperty Name
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with: { name: MarqueePro-Setup-v48, path: MarqueePro-Setup.exe, retention-days: 3, if-no-files-found: error }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: diagnostics-v48, path: diag, retention-days: 3, if-no-files-found: warn }
